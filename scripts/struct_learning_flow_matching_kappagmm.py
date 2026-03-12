@@ -16,6 +16,7 @@ from flow_matching.visualization import save_projections_as_gif, plot_loss_curve
 from flow_matching.datasets import TOY_DATASETS, SyntheticDataset, ToyDatasetName, DatasetkappaGMM
 from flow_matching.solver import TimeBroadcastWrapper,run_ode, sample_ode
 from flow_matching.utils import set_seed
+import numpy as np
 
 
 @dataclass
@@ -26,6 +27,8 @@ class ScriptArguments:
     learning_rate: float = 1e-3
     batch_size: int = 4096
     iterations: int = 20000
+    nb_log_points: int = 10
+    log_scale: str = 'linear'
     log_every: int = 2000
     hidden_dim: int = 512
     seed: int = 42
@@ -80,7 +83,12 @@ def main(args: ScriptArguments) -> None:
     flow = Mlp(dim=dataset.dim, time_dim=1, h=args.hidden_dim).to(device)
     optimizer = torch.optim.AdamW(flow.parameters(), args.learning_rate)
 
-    # Training
+    # Training        
+    if args.log_scale == 'log':
+        log_steps = set(np.unique(np.logspace(0, np.log10(args.iterations), num=args.nb_log_points).astype(int)) - 1)
+    else :
+        log_steps = set(np.unique(np.linspace(0,args.iterations,num=args.nb_log_points, dtype=int)))
+        
 
     projections = []
     losses = []
@@ -102,7 +110,7 @@ def main(args: ScriptArguments) -> None:
         optimizer.step()
         losses.append(loss.item())
 
-        if (global_step + 1) % args.log_every == 0:
+        if global_step in log_steps :
             tqdm.write(f"| step: {global_step + 1:6d} | loss: {loss.item():8.4f} |")
 
             # do an ode run and add the projection on mus
@@ -146,6 +154,7 @@ def main(args: ScriptArguments) -> None:
         projection_data,
         output_dir / 'basis_proj.pt'
     )
+    print(f'saved projection data at {output_dir / 'basis_proj.pt'}')
 
     # make a nice gif with these projections
     save_projections_as_gif(

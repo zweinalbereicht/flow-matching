@@ -327,9 +327,7 @@ def save_projections_as_gif(
     fig, ax = plt.subplots(figsize=(8, 6))
 
     def update(frame):
-        
-        if frame % (p1.shape[0] // 10) == 0 :
-            print(f'Computing frame {frame}/{p1.shape[0]}')
+        print(f'Computing frame {1+frame}/{p1.shape[0]}')
         
         ax.clear()
 
