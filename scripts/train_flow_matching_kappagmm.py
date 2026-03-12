@@ -118,7 +118,7 @@ def main(args: ScriptArguments) -> None:
     run_ode(
         flow=wrapped_model,
         dim=args.dim,
-        output_dir=output_dir,
+        output_dir=output_dir, # type: ignore
         num_samples=int(1e4)
         # filename=f"ode_sampling_evolution_{args.dataset}.png",
     )
