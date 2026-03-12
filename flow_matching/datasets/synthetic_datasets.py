@@ -79,7 +79,8 @@ class DatasetkappaGMM(SyntheticDataset):
                  dim: int = 2,
                  device: torch.device = "cpu",
                  kappa:float = 0.5,
-                 sigma:float = 1.0):
+                 sigma:float = 1.0,
+                 weights : torch.Tensor =torch.tensor([0.25,0.25,0.25,0.25])):
         
         super().__init__(dim, device)
         mask = (torch.arange(dim) < kappa * dim).float()
@@ -91,7 +92,7 @@ class DatasetkappaGMM(SyntheticDataset):
         mus = torch.vstack([mu1 - mu2, mu1 + mu2, -mu1 - mu2, -mu1 + mu2])
         self.mus = mus
         self.sigma = sigma
-        self.weights = torch.tensor([0.25,0.25,0.25,0.25])
+        self.weights = weights / weights.sum() # normalize if needed
         
 
 
