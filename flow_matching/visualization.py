@@ -280,7 +280,7 @@ def plot_likelihood(
 
 def save_projections_as_gif(
     projection_data:dict,
-    mus: torch.tensor,
+    dataset: SyntheticDataset,
     dim:int,
     kappa:float,
     output_dir: str = ".",
@@ -302,12 +302,13 @@ def save_projections_as_gif(
     """
 
     # main directions
-    m1 = (mus[0] + mus[1]) / 2
-    m2 = (mus[0] - mus[1]) / 2
+    m1 = (dataset.mus[0] + dataset.mus[1]) / 2
+    m2 = (dataset.mus[0] - dataset.mus[1]) / 2
     
     # sample ref samples
     nsamples = int(1e4)
-    ref_samples = (mus.unsqueeze(0) + torch.randn((nsamples // 4, *mus.shape), device=mus.device)).reshape(-1,dim)
+    ref_samples = dataset.sample(nsamples)
+
     r1 = (ref_samples @ m1 / dim).cpu().numpy()
     r2 = (ref_samples @ m2 / dim).cpu().numpy()
     # precompute the kde for the reference

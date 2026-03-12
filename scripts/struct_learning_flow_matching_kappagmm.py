@@ -159,7 +159,7 @@ def main(args: ScriptArguments) -> None:
     # make a nice gif with these projections
     save_projections_as_gif(
         projection_data,
-        dataset.mus,
+        dataset,
         args.dim,
         args.kappa,
         output_dir=output_dir,
