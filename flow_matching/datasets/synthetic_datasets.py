@@ -79,7 +79,7 @@ class DatasetkappaGMM(SyntheticDataset):
                  dim: int = 2,
                  device: torch.device = "cpu",
                  kappa:float = 0.5,
-                 sigma:float = 0.1):
+                 sigma:float = 1.0):
         
         super().__init__(dim, device)
         mask = (torch.arange(dim) < kappa * dim).float()
