@@ -330,3 +330,35 @@ def run_ode(
     filename = 'sampling_data.pt'
     torch.save(sampling_data, output_dir / filename)
     print("Sampling results with ODE solver saved to", output_dir / filename)
+
+def sample_ode(
+    flow: ModelWrapper,
+    dim : int, 
+    num_samples: int = 1_000_000,
+    step_size: float = 0.05,
+):
+    """
+    runs the ode and returns the sampled data
+
+    Args:
+        flow (ModelWrapper): The flow model to sample from.
+        dataset (SyntheticDataset): The dataset used to determine the square range for plotting.
+        dim (int): dimension of the data
+        num_samples (int, optional): The number of samples to generate. Default is 1,000,000.
+        step_size (float, optional): The step size for the ODE solver. Default is 0.05.
+    """
+
+
+    flow.eval()
+    device = next(flow.parameters()).device
+    
+
+    x_init = torch.randn((num_samples, dim), dtype=torch.float32, device=device)
+    time_grid = torch.linspace(0, 1, 2).to(device)  # only the beginning and end here
+    solver = ODESolver(flow)
+    sol = solver.sample(
+        x_init=x_init, step_size=step_size, method="midpoint", time_grid=time_grid, return_intermediates=True
+    )
+
+
+    return sol.detach()[-1] # infered samples
