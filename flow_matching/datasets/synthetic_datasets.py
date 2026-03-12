@@ -89,16 +89,17 @@ class DatasetkappaGMM(SyntheticDataset):
         mu1 = mu1 / mu1.norm() * ((1 - kappa) * dim) ** 0.5
         mu2 = mu2 / mu2.norm() * (kappa * dim) ** 0.5
         mus = torch.vstack([mu1 - mu2, mu1 + mu2, -mu1 - mu2, -mu1 + mu2])
-        self.mus = mus.to(self.device)
+        self.mus = mus
         self.sigma = sigma
-        self.weights = torch.tensor([0.25,0.25,0.25,0.25], device=self.device)
+        self.weights = torch.tensor([0.25,0.25,0.25,0.25])
         
 
 
     def sample(self, n: int) -> torch.Tensor:
         
         labels = torch.multinomial(self.weights, n, replacement=True)
-        return self.mus[labels] + self.sigma * torch.randn(n, self.dim, device=self.device)
+        samples = self.mus[labels] + self.sigma * torch.randn((n, self.dim), device = self.mus.device)
+        return samples.to(self.device) # only send to device at the end
         
 
 

@@ -29,10 +29,11 @@ class ScriptArguments:
     iterations: int = 20000
     nb_log_points: int = 10
     log_scale: str = 'linear'
-    log_every: int = 2000
     hidden_dim: int = 512
     seed: int = 42
     interval:int =1
+    nsamples:int=10000
+    bwd_repeat:int=1
 
 
 class Mlp(Module):
@@ -76,8 +77,8 @@ def main(args: ScriptArguments) -> None:
     dataset = DatasetkappaGMM(dim=args.dim,device=device, kappa=args.kappa)
 
     # main directions
-    m1 = (dataset.mus[0] + dataset.mus[1]) / 2
-    m2 = (dataset.mus[0] - dataset.mus[1]) / 2
+    m1 = ((dataset.mus[0] + dataset.mus[1]) / 2).to(device)
+    m2 = ((dataset.mus[0] - dataset.mus[1]) / 2).to(device)
 
 
     flow = Mlp(dim=dataset.dim, time_dim=1, h=args.hidden_dim).to(device)
@@ -118,24 +119,30 @@ def main(args: ScriptArguments) -> None:
 
             wrapped_model = TimeBroadcastWrapper(flow)
             
-            sampled_data_ = sample_ode(
-            flow=wrapped_model,
-            dim=args.dim,
-            num_samples=int(1e4) # hard code, sufficient for our needs
-            # filename=f"ode_sampling_evolution_{args.dataset}.png",
-            )
+            projections_ = []
+            for _ in range(args.bwd_repeat):
 
-            p1 = sampled_data_ @ m1 / args.dim # (nsamples)
-            p2 = sampled_data_ @ m2 / args.dim # (nsamples)
-            
-            projections_ = torch.vstack((p1, p2)).T.detach() # (nsamples, 2)
+                sampled_data_ = sample_ode(
+                flow=wrapped_model,
+                dim=args.dim,
+                num_samples=args.nsamples # hard code, sufficient for our needs
+                # filename=f"ode_sampling_evolution_{args.dataset}.png",
+                )
+
+                p1 = sampled_data_ @ m1 / args.dim # (nsamples)
+                p2 = sampled_data_ @ m2 / args.dim # (nsamples)
+                
+                projections_.append(torch.vstack((p1, p2)).T.detach().cpu()) # (nsamples, 2)
+
+            projections_ = torch.stack(projections_).reshape(-1,2) # (nsamples * n_repeats, 2)
+
             projections.append(projections_.cpu())
-
             eval_times.append(global_step)
 
             flow.train()
 
     flow.eval()
+
     torch.save(flow.state_dict(), output_dir / "ckpt.pth")
     plot_loss_curve(losses=losses, output_path=output_dir / "losses.png")
     
@@ -155,6 +162,9 @@ def main(args: ScriptArguments) -> None:
         output_dir / 'basis_proj.pt'
     )
     print(f'saved projection data at {output_dir / 'basis_proj.pt'}')
+
+    #send dataset to cpu
+    dataset.device = "cpu"
 
     # make a nice gif with these projections
     save_projections_as_gif(
