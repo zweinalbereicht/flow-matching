@@ -177,3 +177,7 @@ sandbox*
 data/*
 !data/invertocat.png
 !data/siggraph.pkl
+
+# outputs
+outputs/
+outputs/*
