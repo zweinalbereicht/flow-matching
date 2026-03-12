@@ -28,7 +28,7 @@ echo "Job ID: $SLURM_JOB_ID"
 uv run python scripts/struct_learning_flow_matching_kappagmm.py \
 --dim=$1 \
 --kappa=$2 \
---iterations=500 \
+--iterations=1000 \
 --nb_log_points=50 \
 --interval=100 \
 --log_scale=log
