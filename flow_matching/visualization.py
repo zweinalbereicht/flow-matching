@@ -7,6 +7,8 @@ import numpy as np
 import torch
 from scipy.ndimage import gaussian_filter1d
 from torch.distributions import Independent, Normal
+from scipy.stats import gaussian_kde
+import seaborn as sns
 
 from flow_matching.datasets import SyntheticDataset
 from flow_matching.solver import ModelWrapper, ODESolver
@@ -275,3 +277,86 @@ def plot_likelihood(
 
     plt.savefig(output_dir / filename)
     print("Likelihood saved to", output_dir / filename)
+
+def save_projections_as_gif(
+    projection_data:dict,
+    mus: torch.tensor,
+    dim:int,
+    kappa:float,
+    output_dir: str = ".",
+    filename: str = "projections.gif",
+    interval:int = 1,
+):
+    """
+    Generate and save a GIF animation of the projections of the two main axis of the strucutred gaussian
+
+    Args:
+        projection_data (dict): Dictionary containing the projection data to animate, expected to have
+                                'projections' and 'eval_times' keys
+        mus (torch.Tensor): Means of the Gaussian mixture components, shape (n_components, dim).
+        dim (int): Dimensionality of the data.
+        kappa (float): relative size of the two directinos.
+        output_dir (str, optional): Directory where the GIF will be saved. Defaults to current directory.
+        filename (str, optional): Name of the output GIF file. Defaults to 'projections.gif'.
+        interval (int, optional): Delay between frames in milliseconds. Defaults to 1.
+    """
+
+    # main directions
+    m1 = (mus[0] + mus[1]) / 2
+    m2 = (mus[0] - mus[1]) / 2
+    
+    # sample ref samples
+    nsamples = int(1e4)
+    ref_samples = (mus.unsqueeze(0) + torch.randn((nsamples // 4, *mus.shape), device=mus.device)).reshape(-1,dim)
+    r1 = (ref_samples @ m1 / dim).cpu().numpy()
+    r2 = (ref_samples @ m2 / dim).cpu().numpy()
+    # precompute the kde for the reference
+    kde_ref = gaussian_kde(np.vstack([r1, r2]), bw_method=0.5)
+    
+    x_grid = np.linspace(2 * r1.min(), 2 * r1.max(), 100)
+    y_grid = np.linspace(2 * r2.min(), 2 * r2.max(), 100)
+    X, Y = np.meshgrid(x_grid, y_grid)
+    Z = kde_ref(np.vstack([X.ravel(), Y.ravel()])).reshape(X.shape)
+
+    # load projections from data
+    p1 = projection_data['projections'][:,:,0].cpu().numpy()
+    p2 = projection_data['projections'][:,:,1].cpu().numpy()
+    times = projection_data['eval_times']
+
+    # Create a figure with two subplots
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    def update(frame):
+        
+        if frame % (p1.shape[0] // 10) == 0 :
+            print(f'Computing frame {frame}/{p1.shape[0]}')
+        
+        ax.clear()
+
+        # Current time step
+        t = times[frame]
+        sns.kdeplot(
+                x=p1[frame], 
+                y=p2[frame],
+                ax=ax,
+                cmap='coolwarm',
+                fill=False,      # no fill, just contour lines
+                levels=10,       # number of iso-density levels
+                bw_adjust=2.0,
+            )
+    
+        # use precomputed for reference
+        ax.contour(X, Y, Z, levels=10, cmap='Greys')
+        ax.set_xlim(-2 * (1-kappa), 2 * (1-kappa))
+        ax.set_ylim(-2 * kappa, 2 * kappa)
+        ax.set_title(f"Nb training steps {t}")
+        
+
+    # Adjust layout to reduce white space
+    # plt.subplots_adjust(left=0.02, right=0.98, top=0.95, bottom=0.05, wspace=0.1)
+
+    # Create and save the animation as a GIF
+    ani = animation.FuncAnimation(fig, update, frames=p1.shape[0], interval=interval)
+    path = output_dir / filename
+    ani.save(path, writer="pillow")
+    print(f"Projection animation saved to {path}")
