@@ -71,6 +71,35 @@ class DatasetMixture(SyntheticDataset):
             np.random.randn(n // 4, 2) * 0.5 + np.array([-2, 2]),
         ]
         return torch.from_numpy(r.astype(np.float32)).to(self.device)
+    
+class DatasetkappaGMM(SyntheticDataset):
+    """mixture of 4 gaussians within the $kappa$ framework"""
+
+    def __init__(self, 
+                 dim: int = 2,
+                 device: torch.device = "cpu",
+                 kappa:float = 0.5,
+                 sigma:float = 0.1):
+        
+        super().__init__(dim, device)
+        mask = (torch.arange(dim) < kappa * dim).float()
+        mu = torch.randn(dim)
+        mu1 = mu * (1 - mask)
+        mu2 = mu * mask
+        mu1 = mu1 / mu1.norm() * ((1 - kappa) * dim) ** 0.5
+        mu2 = mu2 / mu2.norm() * (kappa * dim) ** 0.5
+        mus = torch.vstack([mu1 - mu2, mu1 + mu2, -mu1 - mu2, -mu1 + mu2])
+        self.mus = mus.to(self.device)
+        self.sigma = sigma
+        self.weights = torch.tensor([0.25,0.25,0.25,0.25], device=self.device)
+        
+
+
+    def sample(self, n: int) -> torch.Tensor:
+        
+        labels = torch.multinomial(self.weights, n, replacement=True)
+        return self.mus[labels] + self.sigma * torch.randn(n, self.dim, device=self.device)
+        
 
 
 class DatasetSiggraph(SyntheticDataset):
