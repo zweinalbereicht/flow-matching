@@ -4,6 +4,7 @@ from abc import ABC
 from collections.abc import Callable, Sequence
 
 import torch
+from pathlib import Path
 from torch import Tensor, nn
 from torchdiffeq import odeint
 
@@ -280,3 +281,52 @@ class ODESolver:
             return sol, source_log_p + log_det[-1]
         else:
             return sol[-1], source_log_p + log_det[-1]
+        
+def run_ode(
+    flow: ModelWrapper,
+    dim : int, 
+    num_samples: int = 1_000_000,
+    step_size: float = 0.05,
+    sample_steps: int = 10,
+    output_dir: str = ".",
+    filename: str = "sampling_data.pt",
+):
+    """
+    Simply runs the ode and stores the intermediate data 
+
+    Args:
+        flow (ModelWrapper): The flow model to sample from.
+        dataset (SyntheticDataset): The dataset used to determine the square range for plotting.
+        dim (int): dimension of the data
+        num_samples (int, optional): The number of samples to generate. Default is 1,000,000.
+        step_size (float, optional): The step size for the ODE solver. Default is 0.05.
+        sample_steps (int, optional): The number of time steps to sample. Default is 10.
+        output_dir (str, optional): The directory where the output data will be saved. Default is the current directory.
+        filename (str, optional): The name of the output image file. Default is "sampling_data.pt".
+    """
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    flow.eval()
+    device = next(flow.parameters()).device
+    
+
+    x_init = torch.randn((num_samples, dim), dtype=torch.float32, device=device)
+    time_grid = torch.linspace(0, 1, sample_steps).to(device)  # sample times
+    solver = ODESolver(flow)
+    sol = solver.sample(
+        x_init=x_init, step_size=step_size, method="midpoint", time_grid=time_grid, return_intermediates=True
+    )
+    sol = sol.detach().cpu().numpy()
+    time_grid = time_grid.cpu()
+
+    sampling_data = {
+        'data' : sol,
+        'time_grid' : time_grid
+    }
+    
+    # save the generated samples
+    filename = 'sampling_data.pt'
+    torch.save(sampling_data, output_dir / filename)
+    print("Sampling results with ODE solver saved to", output_dir / filename)
