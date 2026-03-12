@@ -19,7 +19,6 @@ from flow_matching.utils import set_seed
 
 @dataclass
 class ScriptArguments:
-    dataset: ToyDatasetName = "kappagmm"
     dim: int = 2
     kappa:float = 0.3
     output_dir: Path = Path("outputs")
@@ -63,11 +62,11 @@ def main(args: ScriptArguments) -> None:
             device = torch.device("cpu")
 
     set_seed(args.seed)
-    output_dir = args.output_dir / "cfm" / f"{args.dataset}_{args.dim}_{args.kappa}"
+    output_dir = args.output_dir / "cfm" / f"kappagmm_{args.dim}_{args.kappa}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"Using device: {device}")
-    print(f"Dataset: {args.dataset}")
+    print(f"GMM Dataset: {args.dim}, {args.kappa}")
 
     dataset = DatasetkappaGMM(dim=args.dim,device=device, kappa=args.kappa)
 
@@ -102,9 +101,8 @@ def main(args: ScriptArguments) -> None:
     torch.save(flow.state_dict(), output_dir / "ckpt.pth")
     visualization.plot_loss_curve(losses=losses, output_path=output_dir / "losses.png")
     
-    # if we have the kappa gmm we save the mus.
-    if args.dataset == "kappagmm":
-        torch.save(dataset.mus, output_dir / "mus.pt")
+    # save the mus
+    torch.save(dataset.mus, output_dir / "mus.pt")
 
     # Sampling with ODE solver and visualization
 
@@ -121,6 +119,7 @@ def main(args: ScriptArguments) -> None:
         flow=wrapped_model,
         dim=args.dim,
         output_dir=output_dir,
+        num_samples=int(1e4)
         # filename=f"ode_sampling_evolution_{args.dataset}.png",
     )
 
