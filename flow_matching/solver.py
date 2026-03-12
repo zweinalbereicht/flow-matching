@@ -335,7 +335,7 @@ def sample_ode(
     flow: ModelWrapper,
     dim : int, 
     num_samples: int = 1_000_000,
-    step_size: float = 0.05,
+    step_size: float = 0.01,
 ):
     """
     runs the ode and returns the sampled data
